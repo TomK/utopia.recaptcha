@@ -5,7 +5,7 @@ include('lib/recaptchalib.php');
 define('itRECAPTCHA','recaptcha');
 class uRecaptcha {
 	static function Init() {
-		utopia::AddInputType(itRECAPTCHA,array(__CLASS__,'drawinput'));
+		utopia::AddInputType(itRECAPTCHA,array(__CLASS__,'Show'));
 		modOpts::AddOption('recaptcha_public','Public Key','Recaptcha');
 		modOpts::AddOption('recaptcha_private','Private Key','Recaptcha');
 	}
@@ -14,6 +14,7 @@ class uRecaptcha {
 	}
 	static function Show() {
 		$publickey = modOpts::GetOption('recaptcha_public');
+		if (!$publickey) { return 'reCAPTCHA has not configured'; }
 		$err = self::IsValid(); if ($err === true) $err = null;
 		return recaptcha_get_html($publickey,$err);
 	}
