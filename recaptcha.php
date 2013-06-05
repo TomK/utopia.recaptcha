@@ -13,16 +13,22 @@ class uRecaptcha {
 		return self::Show();
 	}
 	static function Show() {
+		if (isset($_SESSION['recaptcha_human_verified']) && $_SESSION['recaptcha_human_verified']) return '';
 		$publickey = modOpts::GetOption('recaptcha_public');
 		if (!$publickey) { return 'reCAPTCHA has not configured'; }
 		$err = self::IsValid(); if ($err === true) $err = null;
 		return recaptcha_get_html($publickey,$err);
 	}
 	static function IsValid() {
+		if (isset($_SESSION['recaptcha_human_verified']) && $_SESSION['recaptcha_human_verified']) return true;
 		if (!isset($_POST["recaptcha_challenge_field"]) || !isset($_POST["recaptcha_response_field"])) return NULL;
 		$privatekey = modOpts::GetOption('recaptcha_private');
 		$resp = recaptcha_check_answer($privatekey, $_SERVER["REMOTE_ADDR"], $_POST["recaptcha_challenge_field"], $_POST["recaptcha_response_field"]);
-		return $resp->is_valid ? true : $resp->error;
+		if ($resp->is_valid) {
+			$_SESSION['recaptcha_human_verified'] = true;
+			return true;
+		}
+		return $resp->error;
 	}
 }
 
