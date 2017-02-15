@@ -1,7 +1,5 @@
 <?php
 
-include('lib/recaptchalib.php');
-
 define('itRECAPTCHA','recaptcha');
 class uRecaptcha {
 	static function Init() {
@@ -16,19 +14,38 @@ class uRecaptcha {
 		if (isset($_SESSION['recaptcha_human_verified']) && $_SESSION['recaptcha_human_verified']) return '';
 		$publickey = modOpts::GetOption('recaptcha_public');
 		if (!$publickey) { return 'reCAPTCHA has not configured'; }
+		uJavascript::LinkFile('https://www.google.com/recaptcha/api.js');
 		$err = self::IsValid(); if ($err === true) $err = null;
-		return recaptcha_get_html($publickey,$err);
+		return '<div class="g-recaptcha" data-sitekey="' . $publickey . '"></div>';
 	}
 	static function IsValid() {
 		if (isset($_SESSION['recaptcha_human_verified']) && $_SESSION['recaptcha_human_verified']) return true;
-		if (!isset($_POST["recaptcha_challenge_field"]) || !isset($_POST["recaptcha_response_field"])) return NULL;
+		if (!isset($_POST['g-recaptcha-response'])) return NULL;
 		$privatekey = modOpts::GetOption('recaptcha_private');
-		$resp = recaptcha_check_answer($privatekey, $_SERVER["REMOTE_ADDR"], $_POST["recaptcha_challenge_field"], $_POST["recaptcha_response_field"]);
-		if ($resp->is_valid) {
-			$_SESSION['recaptcha_human_verified'] = true;
-			return true;
+
+		$ipAddress = $_SERVER['REMOTE_ADDR'];
+		if (array_key_exists('HTTP_X_FORWARDED_FOR', $_SERVER)) {
+			$ipAddress = array_pop(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
 		}
-		return $resp->error;
+
+		$ch = curl_init();
+		$fields = array('secret'=>$privatekey,'response'=>$_POST['g-recaptcha-response'],'remoteip'=>$ipAddress);
+		$query = http_build_query($fields);
+		curl_setopt($ch,CURLOPT_URL, 'https://www.google.com/recaptcha/api/siteverify');
+		curl_setopt($ch,CURLOPT_POST, count($fields));
+		curl_setopt($ch,CURLOPT_POSTFIELDS, $query);
+		curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+		$result = curl_exec($ch);
+		curl_close($ch);
+
+		if ($result){
+			$decode = json_decode($result,true);
+			if ($decode['success']){
+				$_SESSION['recaptcha_human_verified'] = true;
+				return true;
+			}
+		}
+		return 'Human Validation Failed';
 	}
 }
 
